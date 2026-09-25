@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2F5D3A">
+<title>배추밭 물관리</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root{
+  --bg:#EEF2EC; --card:#FFFFFF; --ink:#1D2B1F; --sub:#5E6D60; --line:#D6DDD3; --brand:#2F5D3A;
+  --red:#D64545; --blue:#2F7FD8; --orange:#E8892B; --yellow:#E3B51E; --green:#2E9E5B;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root{--bg:#141A15;--card:#1E261F;--ink:#E7EEE6;--sub:#9AAA9B;--line:#2F3A30;--brand:#7FBF8C}}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.wrap{max-width:720px;margin:0 auto;padding:16px 14px 90px}
+
+header{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+header h1{font-size:1.25rem;margin:0;flex:1;font-weight:800;letter-spacing:-.02em}
+.icon-btn{border:1px solid var(--line);background:var(--card);border-radius:12px;width:44px;height:44px;font-size:1.1rem}
+
+.datebar{display:flex;align-items:center;gap:6px;margin-bottom:12px}
+.datebar input{flex:1;height:44px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);padding:0 12px;font:inherit;font-weight:600}
+.today-btn{height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--brand);background:var(--brand);color:#fff;font-weight:700}
+.past-note{background:#FFF4D6;color:#6B5310;border-radius:10px;padding:8px 12px;font-size:.9rem;margin-bottom:12px}
+
+/* 오늘 현황 막대 */
+.overview{background:var(--card);border-radius:16px;padding:14px;margin-bottom:14px;border:1px solid var(--line)}
+.ov-bar{display:flex;height:22px;border-radius:11px;overflow:hidden;gap:2px}
+.ov-bar span{flex:1}
+.ov-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:.88rem;color:var(--sub)}
+.ov-legend b{color:var(--ink)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:0}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.card{position:relative;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 12px 12px 18px;min-height:128px;overflow:hidden}
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:7px;background:var(--st)}
+.card h3{margin:0 0 6px;font-size:1.08rem;font-weight:800}
+.card .st{font-size:.9rem;font-weight:700;color:var(--st);margin-bottom:8px}
+.card .rl{font-size:.86rem;color:var(--sub);line-height:1.55}
+.card.run{animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 4px color-mix(in srgb,var(--blue) 25%,transparent)}}
+@media (prefers-reduced-motion:reduce){.card.run{animation:none}}
+
+/* 상세 시트 */
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;z-index:10}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-width:720px;margin:0 auto;background:var(--card);border-radius:20px 20px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px));max-height:88vh;overflow:auto;transform:translateY(100%);transition:transform .22s ease;z-index:11}
+.sheet.open{transform:none}
+.sheet h2{margin:0 0 4px;font-size:1.3rem}
+.sheet .memo{color:var(--sub);font-size:.9rem;margin-bottom:12px}
+.tabs,.segs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button,.segs button{flex:1;min-height:46px;border-radius:12px;border:1.5px solid var(--line);background:transparent;font-weight:700}
+.tabs button[aria-pressed=true]{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.segs button[aria-pressed=true]{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 12%,transparent);color:var(--blue)}
+.segs button:disabled{opacity:.4;text-decoration:line-through}
+.progress{height:12px;background:var(--line);border-radius:6px;overflow:hidden;margin:4px 0 14px}
+.progress i{display:block;height:100%;background:var(--green);transition:width .3s}
+.big{width:100%;min-height:64px;border:0;border-radius:16px;font-size:1.2rem;font-weight:800;color:#fff;margin-bottom:10px}
+.big.start{background:var(--blue)} .big.stop{background:var(--red)}
+.big:disabled{background:var(--line);color:var(--sub)}
+.running{background:color-mix(in srgb,var(--blue) 12%,transparent);border-radius:12px;padding:12px;margin-bottom:10px;font-weight:700;color:var(--blue)}
+.recs{list-style:none;padding:0;margin:6px 0 0}
+.recs li{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line);padding:10px 0;font-size:.95rem}
+.recs li span{flex:1}
+.recs small{color:var(--sub)}
+.del{border:1px solid var(--line);background:transparent;border-radius:8px;padding:6px 10px;font-size:.85rem;color:var(--red)}
+.close{width:100%;min-height:46px;border-radius:12px;border:1px solid var(--line);background:transparent;margin-top:12px;font-weight:700}
+
+.table-wrap{overflow-x:auto;margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:14px}
+table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:420px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{color:var(--sub);font-weight:600}
+h4{margin:22px 0 0;font-size:1rem}
+
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--card);padding:12px 18px;border-radius:12px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90%}
+.toast.show{opacity:1}
+.empty{background:var(--card);border:1px dashed var(--line);border-radius:14px;padding:22px;text-align:center;color:var(--sub);line-height:1.6}
+.setup input{width:100%;height:46px;border:1px solid var(--line);border-radius:12px;padding:0 12px;background:transparent;color:var(--ink);font:inherit;margin:8px 0}
+.loading{opacity:.55;pointer-events:none}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <header>
+    <h1>🌱 배추밭 물관리</h1>
+    <button class="icon-btn" id="btnReload" aria-label="새로고침">⟳</button>
+    <button class="icon-btn" id="btnSetup" aria-label="연결 설정">⚙</button>
+  </header>
+
+  <div class="datebar">
+    <button class="icon-btn" id="prev" aria-label="전날">‹</button>
+    <input type="date" id="date" aria-label="날짜 선택">
+    <button class="icon-btn" id="next" aria-label="다음날">›</button>
+    <button class="today-btn" id="goToday">오늘</button>
+  </div>
+
+  <div id="pastNote" class="past-note" hidden>지난 날짜 기록을 보는 중입니다. 급수 시작·종료는 오늘 날짜에서만 할 수 있어요.</div>
+  <div id="content"></div>
+</div>
+
+<div class="sheet-bg" id="sheetBg"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ============ 설정 ============ */
+// 여기에 웹 앱 URL을 직접 넣어도 되고, 화면의 ⚙ 설정에서 입력해도 됩니다.
+const DEFAULT_API = '';
+
+const COLORS = { none:'var(--red)', run:'var(--blue)', part:'var(--orange)', one:'var(--yellow)', done:'var(--green)' };
+const LABELS = { none:'미급수', run:'급수 중', part:'부분 완료', one:'1회 완료', done:'전체 완료' };
+const SEGS = [
+  { key:'전체', label:'전체 100%' },
+  { key:'앞쪽 절반', label:'앞쪽 절반' },
+  { key:'나머지 절반', label:'나머지 절반' }
+];
+
+let api = (()=>{ try{ return localStorage.getItem('waterApi') || DEFAULT_API; }catch(e){ return DEFAULT_API; } })();
+let state = { date:'', today:'', fields:[], records:[] };
+let sel = { field:null, round:1, seg:'전체' };
+const $ = id => document.getElementById(id);
+
+/* ============ 서버 통신 ============ */
+async function call(params = {}) {
+  if (!api) { renderSetup(); return null; }
+  const q = new URLSearchParams({ date: $('date').value || '', ...params, t: Date.now() });
+  document.body.classList.add('loading');
+  try {
+    const res = await fetch(api + '?' + q.toString());
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || '알 수 없는 오류');
+    state = data;
+    if (!$('date').value) $('date').value = data.date;
+    if (data.msg) toast(data.msg);
+    render();
+    return data;
+  } catch (e) {
+    toast('불러오지 못했습니다: ' + e.message);
+    return null;
+  } finally {
+    document.body.classList.remove('loading');
+  }
+}
+
+/* ============ 상태 계산 ============ */
+function roundInfo(field, round) {
+  const recs = state.records.filter(r => r.field === field.name && r.round === round);
+  const running = recs.find(r => !r.end);
+  const doneSegs = new Set(recs.filter(r => r.end).map(r => r.seg));
+  let pct = doneSegs.has('전체') ? 100 : (doneSegs.has('앞쪽 절반') ? 50 : 0) + (doneSegs.has('나머지 절반') ? 50 : 0);
+  return { recs, running, doneSegs, pct: Math.min(pct, 100) };
+}
+function fieldStatus(field) {
+  const infos = [];
+  for (let r = 1; r <= field.rounds; r++) infos.push(roundInfo(field, r));
+  let st = 'none';
+  const done = infos.filter(i => i.pct >= 100).length;
+  if (infos.some(i => i.running)) st = 'run';
+  else if (done >= field.rounds) st = 'done';
+  else if (infos.some(i => i.pct > 0 && i.pct < 100)) st = 'part';
+  else if (done >= 1) st = 'one';
+  return { st, infos };
+}
+function roundLine(i, n) {
+  if (!i.recs.length) return n + '차 미시작';
+  const times = i.recs.map(r => r.start + '~' + (r.end || '진행')).join(', ');
+  return n + '차 ' + (i.pct < 100 ? i.pct + '% · ' : '') + times;
+}
+
+/* ============ 화면 ============ */
+function render() {
+  const isToday = state.date === state.today;
+  $('pastNote').hidden = isToday;
+  if (!state.fields.length) {
+    $('content').innerHTML = '<div class="empty">밭 목록이 비어 있습니다.<br>구글시트의 「밭목록」 시트에 밭 이름을 추가해 주세요.</div>';
+    return;
+  }
+  const stats = state.fields.map(f => ({ f, ...fieldStatus(f) }));
+  const count = k => stats.filter(s => s.st === k).length;
+
+  let html = `<section class="overview" aria-label="현황">
+    <div class="ov-bar">${stats.map(s => `<span style="background:${COLORS[s.st]}" title="${s.f.name}"></span>`).join('')}</div>
+    <div class="ov-legend">${Object.keys(LABELS).map(k => `<span><i class="dot" style="background:${COLORS[k]}"></i>${LABELS[k]} <b>${count(k)}</b></span>`).join('')}</div>
+  </section><div class="grid">`;
+
+  stats.forEach((s, idx) => {
+    html += `<button class="card ${s.st === 'run' ? 'run' : ''}" style="--st:${COLORS[s.st]}" data-i="${idx}">
+      <h3>${esc(s.f.name)}</h3>
+      <div class="st">● ${LABELS[s.st]}</div>
+      <div class="rl">${s.infos.map((i, k) => esc(roundLine(i, k + 1))).join('<br>')}</div>
+    </button>`;
+  });
+  html += '</div>';
+
+  // 날짜별 기록 표
+  const recs = [...state.records].sort((a, b) => a.start.localeCompare(b.start));
+  html += `<h4>${state.date} 급수 기록 (${recs.length}건)</h4>`;
+  html += recs.length ? `<div class="table-wrap"><table>
+    <thead><tr><th>밭</th><th>회차</th><th>구역</th><th>시작</th><th>종료</th><th>분</th></tr></thead>
+    <tbody>${recs.map(r => `<tr><td>${esc(r.field)}</td><td>${r.round}차</td><td>${esc(r.seg)}</td><td>${r.start}</td><td>${r.end || '진행 중'}</td><td>${r.mins}</td></tr>`).join('')}</tbody>
+  </table></div>` : '<div class="empty" style="margin-top:8px">이 날짜에는 기록이 없습니다.</div>';
+
+  $('content').innerHTML = html;
+  document.querySelectorAll('.card').forEach(c => c.onclick = () => openField(stats[+c.dataset.i].f));
+  if (sel.field) renderSheet();
+}
+
+function openField(f) {
+  sel.field = f.name;
+  const { infos } = fieldStatus(f);
+  // 진행 중이거나 미완료인 첫 회차로 자동 이동
+  const idx = infos.findIndex(i => i.running || i.pct < 100);
+  sel.round = idx >= 0 ? idx + 1 : 1;
+  sel.seg = null;
+  renderSheet();
+  $('sheet').classList.add('open');
+  $('sheetBg').style.display = 'block';
+}
+function closeSheet() {
+  sel.field = null;
+  $('sheet').classList.remove('open');
+  $('sheetBg').style.display = 'none';
+}
+
+function renderSheet() {
+  const f = state.fields.find(x => x.name === sel.field);
+  if (!f) return closeSheet();
+  const isToday = state.date === state.today;
+  const info = roundInfo(f, sel.round);
+  const segs = f.split ? SEGS : [SEGS[0]];
+  const segDone = k => k === '전체' ? info.pct >= 100 || info.doneSegs.size > 0 : info.doneSegs.has(k) || info.doneSegs.has('전체');
+  if (!sel.seg || segDone(sel.seg)) sel.seg = (segs.find(s => !segDone(s.key)) || segs[0]).key;
+
+  let h = `<h2>${esc(f.name)}</h2>
+    <div class="memo">${f.split ? '분할 급수 가능 · ' : ''}하루 ${f.rounds}회${f.memo ? ' · ' + esc(f.memo) : ''}</div>
+    <div class="tabs">${Array.from({ length: f.rounds }, (_, i) => `<button data-r="${i + 1}" aria-pressed="${sel.round === i + 1}">${i + 1}차 급수</button>`).join('')}</div>
+    <div style="display:flex;justify-content:space-between;font-weight:700"><span>${sel.round}차 진행률</span><span>${info.pct}%</span></div>
+    <div class="progress"><i style="width:${info.pct}%"></i></div>`;
+
+  if (info.running) {
+    h += `<div class="running">💧 ${esc(info.running.seg)} 급수 중 · ${info.running.start} 시작 (${elapsed(info.running.start)} 경과)</div>
+      <button class="big stop" id="btnEnd" ${isToday ? '' : 'disabled'}>급수 종료</button>`;
+  } else if (info.pct >= 100) {
+    h += `<div class="running" style="color:var(--green);background:color-mix(in srgb,var(--green) 12%,transparent)">✔ ${sel.round}차 급수 완료</div>`;
+  } else {
+    if (f.split) {
+      h += `<div class="segs">${segs.map(s => `<button data-s="${s.key}" aria-pressed="${sel.seg === s.key}" ${segDone(s.key) ? 'disabled' : ''}>${s.label}</button>`).join('')}</div>`;
+    }
+    h += `<button class="big start" id="btnStart" ${isToday ? '' : 'disabled'}>${f.split && sel.seg !== '전체' ? esc(sel.seg) + ' ' : ''}급수 시작</button>`;
+  }
+
+  if (info.recs.length) {
+    h += `<ul class="recs">${info.recs.map(r => `<li><span><b>${r.start} ~ ${r.end || '진행 중'}</b> <small>${esc(r.seg)} · ${r.pct}%${r.mins !== '' ? ' · ' + r.mins + '분' : ''}</small></span>
+      <button class="del" data-id="${r.id}">삭제</button></li>`).join('')}</ul>`;
+  }
+  h += '<button class="close" id="btnClose">닫기</button>';
+  $('sheet').innerHTML = h;
+
+  $('sheet').querySelectorAll('[data-r]').forEach(b => b.onclick = () => { sel.round = +b.dataset.r; sel.seg = null; renderSheet(); });
+  $('sheet').querySelectorAll('[data-s]').forEach(b => b.onclick = () => { sel.seg = b.dataset.s; renderSheet(); });
+  $('sheet').querySelectorAll('.del').forEach(b => b.onclick = () => {
+    if (confirm('이 기록을 삭제할까요? 구글시트에서도 지워집니다.')) call({ action: 'remove', id: b.dataset.id });
+  });
+  $('btnClose').onclick = closeSheet;
+  if ($('btnStart')) $('btnStart').onclick = () => call({ action: 'start', field: f.name, round: sel.round, seg: sel.seg });
+  if ($('btnEnd')) $('btnEnd').onclick = () => call({ action: 'end', id: info.running.id });
+}
+
+function renderSetup() {
+  $('sheet').innerHTML = `<div class="setup">
+    <h2>구글시트 연결</h2>
+    <div class="memo">Apps Script에서 배포한 웹 앱 URL(…/exec로 끝나는 주소)을 붙여넣어 주세요. 이 휴대폰에만 저장됩니다.</div>
+    <input id="apiInput" type="url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(api)}">
+    <button class="big start" id="saveApi">연결 저장</button>
+    <button class="close" id="btnClose">닫기</button></div>`;
+  $('sheet').classList.add('open');
+  $('sheetBg').style.display = 'block';
+  $('btnClose').onclick = closeSheet;
+  $('saveApi').onclick = () => {
+    api = $('apiInput').value.trim();
+    try { localStorage.setItem('waterApi', api); } catch (e) {}
+    closeSheet(); call();
+  };
+}
+
+/* ============ 도우미 ============ */
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function elapsed(start) {
+  const [h, m] = start.split(':').map(Number);
+  const now = new Date(); let d = now.getHours() * 60 + now.getMinutes() - (h * 60 + m);
+  if (d < 0) d += 1440;
+  return d >= 60 ? Math.floor(d / 60) + '시간 ' + (d % 60) + '분' : d + '분';
+}
+let tt; function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => el.classList.remove('show'), 2600); }
+function shiftDate(n) {
+  const d = new Date(($('date').value || state.today) + 'T00:00:00'); d.setDate(d.getDate() + n);
+  $('date').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  call();
+}
+
+$('date').onchange = () => call();
+$('prev').onclick = () => shiftDate(-1);
+$('next').onclick = () => shiftDate(1);
+$('goToday').onclick = () => { $('date').value = ''; call(); };
+$('btnReload').onclick = () => call();
+$('btnSetup').onclick = renderSetup;
+$('sheetBg').onclick = closeSheet;
+
+// 오늘 화면일 때 1분마다 자동 갱신 (다른 사람이 누른 기록도 반영)
+setInterval(() => { if (state.date && state.date === state.today && document.visibilityState === 'visible') call(); }, 60000);
+call();
+</script>
+</body>
+</html>
