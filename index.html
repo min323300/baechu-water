@@ -84,6 +84,8 @@ table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:480px}
 th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
 th{color:var(--sub);font-weight:600}
 h4{margin:22px 0 0;font-size:1rem}
+.rec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.word-btn{min-height:44px;padding:0 14px;border-radius:12px;border:1.5px solid var(--brand);background:transparent;color:var(--brand);font-weight:800;margin-top:14px}
 
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--card);padding:12px 18px;border-radius:12px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90%}
 .toast.show{opacity:1}
@@ -276,7 +278,7 @@ function render() {
   html += '</div>';
 
   const recs = [...state.records].sort((a, b) => a.start.localeCompare(b.start));
-  html += `<h4>${state.date} 급수 기록 (${recs.length}건)</h4>`;
+  html += `<div class="rec-head"><h4>${state.date} 급수 기록 (${recs.length}건)</h4><button class="word-btn" id="btnWord">📄 A4 일지 워드로 저장</button></div>`;
   html += recs.length ? `<div class="table-wrap"><table>
     <thead><tr><th>밭</th><th>회차</th><th>구역</th><th>시작</th><th>종료</th><th>실제</th><th>목표</th></tr></thead>
     <tbody>${recs.map(r => `<tr><td>${esc(r.field)}</td><td>${r.round}차</td><td>${esc(r.seg)}</td><td>${r.start}</td><td>${r.end || '진행 중'}</td><td>${r.mins === '' ? '-' : dur(r.mins)}</td><td>${dur(r.plan)}</td></tr>`).join('')}</tbody>
@@ -284,6 +286,7 @@ function render() {
 
   $('content').innerHTML = html;
   document.querySelectorAll('.card').forEach(c => c.onclick = () => openField(stats[+c.dataset.i].f));
+  $('btnWord').onclick = downloadWord;
   document.querySelectorAll('.issues-top [data-f]').forEach(b => b.onclick = () => {
     const f = state.fields.find(x => x.name === b.dataset.f); if (f) openField(f, true);
   });
@@ -401,6 +404,104 @@ function renderSetup() {
     try { localStorage.setItem('waterApi', api); } catch (e) {}
     closeSheet(); call();
   };
+}
+
+/* ============ A4 워드 일지 ============ */
+function loadDocx() {
+  if (window.docx) return Promise.resolve(window.docx);
+  return new Promise((ok, fail) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/docx@9.5.1/dist/index.iife.js';
+    sc.onload = () => ok(window.docx); sc.onerror = () => fail(new Error('워드 변환 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'));
+    document.head.appendChild(sc);
+  });
+}
+
+async function downloadWord() {
+  let D;
+  try { toast('워드 문서를 만드는 중…'); D = await loadDocx(); } catch (e) { return toast(e.message); }
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, ShadingType, VerticalAlign } = D;
+  const FONT = '맑은 고딕', SZ = 18; // 9pt
+  const W = 10206; // A4 폭 - 좌우 여백 1.5cm
+  const bd = { style: BorderStyle.SINGLE, size: 4, color: '8A8A8A' };
+  const borders = { top: bd, bottom: bd, left: bd, right: bd };
+  const run = (t, o = {}) => new TextRun({ text: String(t), font: FONT, size: SZ, ...o });
+  const para = (t, o = {}, po = {}) => new Paragraph({ children: [run(t, o)], ...po });
+  const cell = (lines, w, head) => new TableCell({
+    width: { size: w, type: WidthType.DXA }, borders, verticalAlign: VerticalAlign.CENTER,
+    shading: head ? { fill: 'E4EBE2', type: ShadingType.CLEAR, color: 'auto' } : undefined,
+    margins: { top: 50, bottom: 50, left: 90, right: 90 },
+    children: (Array.isArray(lines) ? lines : [lines]).map(t => para(t, { bold: !!head }, { alignment: head ? AlignmentType.CENTER : AlignmentType.LEFT, spacing: { before: 0, after: 0 } }))
+  });
+  const table = (widths, head, rows) => new Table({
+    width: { size: W, type: WidthType.DXA }, columnWidths: widths,
+    rows: [new TableRow({ tableHeader: true, children: head.map((h, i) => cell(h, widths[i], true)) }),
+           ...rows.map(r => new TableRow({ children: r.map((c, i) => cell(c, widths[i])) }))]
+  });
+  const heading = t => para(t, { bold: true, size: 22 }, { spacing: { before: 200, after: 80 } });
+
+  const date = state.date;
+  const dd = new Date(date + 'T00:00:00');
+  const ymd = `${dd.getFullYear()}년 ${dd.getMonth() + 1}월 ${dd.getDate()}일 (${'일월화수목금토'[dd.getDay()]})`;
+  const now = new Date();
+  const printed = `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  // 1) 밭별 현황
+  const maxR = Math.max(...state.fields.map(f => f.rounds), 2);
+  const sw = [1700, ...Array(maxR).fill(Math.floor((W - 1700 - 1300) / maxR))];
+  sw.push(W - sw.reduce((a, b) => a + b, 0));
+  const sumRows = state.fields.map(f => {
+    const fs = fieldStatus(f);
+    const cols = [];
+    for (let r = 1; r <= maxR; r++) {
+      const i = fs.infos[r - 1];
+      if (!i) { cols.push('-'); continue; }
+      cols.push(i.recs.length ? i.recs.map(x => `${x.seg === '전체' ? '' : x.seg + ' '}${x.start}~${x.end || '진행 중'}${x.mins !== '' ? ' (' + dur(x.mins) + ')' : ''}`) : '미급수');
+    }
+    return [f.name, ...cols, LABELS[fs.st]];
+  });
+
+  // 2) 상세 기록
+  const recs = [...state.records].sort((a, b) => a.start.localeCompare(b.start));
+  const dw = [1800, 800, 1300, 1100, 1100, 1450, 1450]; dw.push(W - dw.reduce((a, b) => a + b, 0));
+  const detRows = recs.map(r => [r.field, r.round + '차', r.seg, r.start, r.end || '진행 중', r.mins === '' ? '-' : dur(r.mins), dur(r.plan),
+    r.mins === '' ? '' : (r.mins - r.plan > 0 ? '+' : '') + (r.mins - r.plan) + '분']);
+
+  // 3) 문제 메모 (그날 기록 + 아직 미해결)
+  const iss = state.issues.filter(i => i.date === date || !i.done);
+  const iw = [1500, 1500, 1600, 4006, 1600];
+  const issRows = iss.map(i => [`${i.date.slice(5).replace('-', '/')} ${i.time}`, i.field, i.type, i.text || '-', i.done ? '해결 ' + (i.doneAt || '').slice(5) : '미해결']);
+
+  const totalMin = recs.reduce((a, r) => a + (r.mins === '' ? 0 : r.mins), 0);
+  const doneFields = state.fields.filter(f => fieldStatus(f).st === 'done').length;
+
+  const children = [
+    para('배추밭 급수 일지', { bold: true, size: 32 }, { alignment: AlignmentType.CENTER, spacing: { after: 60 } }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 160 }, children: [run(`일자: ${ymd}`, { bold: true, size: 20 }), run(`      출력: ${printed}`, { color: '666666' })] }),
+    para(`전체 ${state.fields.length}개 밭 중 ${doneFields}개 완료 · 급수 ${recs.length}건 · 총 급수시간 ${dur(totalMin)} · 문제 메모 ${iss.length}건`, {}, { spacing: { after: 60 } }),
+    heading('1. 밭별 급수 현황'),
+    table(sw, ['밭 이름', ...Array.from({ length: maxR }, (_, i) => `${i + 1}차 급수`), '상태'], sumRows),
+    heading('2. 급수 상세 기록'),
+    recs.length ? table(dw, ['밭', '회차', '구역', '시작', '종료', '실제', '목표', '차이'], detRows) : para('이 날짜에는 급수 기록이 없습니다.', { color: '666666' }),
+    heading('3. 문제 메모 (스프링클러·호스 등)'),
+    iss.length ? table(iw, ['일시', '밭', '유형', '내용', '처리'], issRows) : para('기록된 문제가 없습니다.', { color: '666666' }),
+    heading('4. 특이사항'),
+    para('________________________________________________________________________________________', { color: '999999' }, { spacing: { after: 120 } }),
+    para('________________________________________________________________________________________', { color: '999999' }, { spacing: { after: 240 } }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, children: [run('작성자: ______________ (서명)        확인: ______________ (서명)', { size: 20 })] })
+  ];
+
+  const doc = new Document({
+    styles: { default: { document: { run: { font: FONT, size: SZ } } } },
+    sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 850, bottom: 850, left: 850, right: 850 } } }, children }]
+  });
+  const blob = await Packer.toBlob(doc);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `배추밭_급수일지_${date}.docx`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast('워드 일지를 저장했습니다.');
 }
 
 /* ============ 도우미 ============ */
