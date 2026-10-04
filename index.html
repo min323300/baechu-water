@@ -92,6 +92,19 @@ h4{margin:22px 0 0;font-size:1rem}
 .empty{background:var(--card);border:1px dashed var(--line);border-radius:14px;padding:22px;text-align:center;color:var(--sub);line-height:1.6}
 .setup input{width:100%;height:46px;border:1px solid var(--line);border-radius:12px;padding:0 12px;background:transparent;color:var(--ink);font:inherit;margin:8px 0}
 .loading .grid,.loading .sheet{opacity:.6;pointer-events:none}
+.manual-btn{width:100%;min-height:46px;border-radius:12px;border:1.5px dashed var(--sub);background:transparent;color:var(--sub);font-weight:700;margin-bottom:10px}
+.eform{width:100%;border:1.5px solid var(--blue);border-radius:14px;padding:12px;margin:6px 0 10px;background:color-mix(in srgb,var(--blue) 6%,transparent)}
+.eform h5{margin:0 0 10px;font-size:.98rem}
+.erow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.eform label{display:block;font-size:.85rem;font-weight:700;color:var(--sub)}
+.eform input,.eform select{width:100%;height:46px;margin-top:4px;border:1px solid var(--line);border-radius:10px;padding:0 10px;font:inherit;font-size:1.05rem;background:var(--card);color:var(--ink)}
+.eform .hint{font-size:.82rem;color:var(--sub);margin:0 0 8px}
+.ebtns{display:flex;gap:8px}
+.ebtns button{flex:1;min-height:48px;border-radius:12px;font-weight:800;border:1.5px solid var(--line);background:transparent}
+.ebtns .save{background:var(--blue);border-color:var(--blue);color:#fff}
+.recs li.editing{display:block}
+.edit-btn{border:1px solid var(--line);background:transparent;border-radius:8px;padding:6px 10px;font-size:.85rem;color:var(--blue)}
+.tag{font-size:.75rem;color:var(--orange);font-weight:700}
 .badge{position:absolute;top:10px;right:10px;background:#B42318;color:#fff;font-size:.78rem;font-weight:800;border-radius:999px;padding:3px 8px}
 .issues-top{background:color-mix(in srgb,#B42318 8%,var(--card));border:1.5px solid #B42318;border-radius:14px;padding:12px 14px;margin-bottom:14px}
 .issues-top h5{margin:0 0 6px;font-size:.98rem;color:#B42318}
@@ -147,7 +160,7 @@ const SEGS = [ { key:'전체', label:'전체 100%' }, { key:'앞쪽 절반', lab
 
 let api = (()=>{ try{ return localStorage.getItem('waterApi') || DEFAULT_API; }catch(e){ return DEFAULT_API; } })();
 let state = { date:'', today:'', fields:[], records:[], issues:[] };
-let sel = { field:null, round:1, seg:null, plan:null, itype:null, itext:'' };
+let sel = { field:null, round:1, seg:null, plan:null, itype:null, itext:'', editId:null, adding:false };
 const alerted = new Set();
 const $ = id => document.getElementById(id);
 
@@ -291,7 +304,7 @@ function render() {
     const f = state.fields.find(x => x.name === b.dataset.f); if (f) openField(f, true);
   });
   // 메모 입력 중에는 화면을 다시 그리지 않음 (쓰던 글자 보호)
-  const typing = document.activeElement && document.activeElement.id === 'itext';
+  const typing = (document.activeElement && document.activeElement.id === 'itext') || sel.editId || sel.adding;
   if (sel.field && $('sheet').classList.contains('open') && !typing) renderSheet();
 }
 
@@ -302,14 +315,14 @@ function openField(f, toIssue) {
   sel.round = idx >= 0 ? idx + 1 : 1;
   sel.seg = null;
   sel.plan = f.planMin;
-  sel.itype = null; sel.itext = '';
+  sel.itype = null; sel.itext = ''; sel.editId = null; sel.adding = false;
   $('sheet').classList.add('open');
   $('sheetBg').style.display = 'block';
   renderSheet();
   if (toIssue && $('issueBox')) $('issueBox').scrollIntoView({ block: 'start' });
 }
 function closeSheet() {
-  sel.field = null;
+  sel.field = null; sel.editId = null; sel.adding = false;
   $('sheet').classList.remove('open');
   $('sheetBg').style.display = 'none';
 }
@@ -341,18 +354,37 @@ function renderSheet() {
       <div class="ext"><button data-ext="30">+30분 연장</button><button data-ext="-30" ${L.plan <= 40 ? 'disabled' : ''}>30분 줄이기</button></div>
       <button class="big stop" id="btnEnd">급수 종료</button>`;
   } else if (info.running) {
-    h += `<div class="done-box" style="color:var(--blue);background:color-mix(in srgb,var(--blue) 12%,transparent)">${info.running.start} 시작 후 종료 기록이 없습니다.</div>`;
+    h += `<div class="done-box" style="color:var(--blue);background:color-mix(in srgb,var(--blue) 12%,transparent)">${info.running.start} 시작 후 종료 기록이 없습니다. 아래 기록의 [수정]을 눌러 종료 시각을 넣어 주세요.</div>`;
   } else if (info.pct >= 100) {
     h += `<div class="done-box">✔ ${sel.round}차 급수 완료</div>`;
   } else {
     if (f.split) h += `<div class="lbl">급수 구역</div><div class="segs">${segs.map(s => `<button data-s="${s.key}" aria-pressed="${sel.seg === s.key}" ${segDone(s.key) ? 'disabled' : ''}>${s.label}</button>`).join('')}</div>`;
     h += `<div class="lbl">급수 시간</div><div class="chips">${plans.map(p => `<button data-p="${p}" aria-pressed="${sel.plan === p}">${dur(p)}</button>`).join('')}</div>
-      <button class="big start" id="btnStart" ${isToday ? '' : 'disabled'}>${f.split && sel.seg !== '전체' ? esc(sel.seg) + ' ' : ''}${dur(sel.plan)} 급수 시작</button>`;
+      ${isToday ? `<button class="big start" id="btnStart">${f.split && sel.seg !== '전체' ? esc(sel.seg) + ' ' : ''}${dur(sel.plan)} 급수 시작</button>` : ''}`;
+  }
+
+  // 직접 입력 (버튼을 못 누르고 지나갔을 때)
+  const planOpts = cur => [...new Set([...PLAN_OPTIONS, f.planMin, cur || f.planMin])].sort((a, b) => a - b)
+    .map(p => `<option value="${p}" ${p === (cur || f.planMin) ? 'selected' : ''}>${dur(p)}</option>`).join('');
+  if (sel.adding) {
+    h += `<div class="eform"><h5>✍ ${sel.round}차 급수 시간 직접 입력 · ${state.date}</h5>
+      <p class="hint">버튼을 못 누르고 지나간 급수를 기록합니다. 아직 끝나지 않았으면 종료 시각은 비워 두세요.</p>
+      ${f.split ? `<label>구역<select id="aSeg">${SEGS.map(x => `<option ${x.key === sel.seg ? 'selected' : ''}>${x.key}</option>`).join('')}</select></label>` : ''}
+      <div class="erow"><label>시작 시각<input type="time" id="aStart"></label><label>종료 시각<input type="time" id="aEnd"></label></div>
+      <label style="margin-bottom:10px">목표 시간<select id="aPlan">${planOpts(sel.plan)}</select></label>
+      <div class="ebtns"><button id="aCancel">취소</button><button class="save" id="aSave">기록 추가</button></div></div>`;
+  } else {
+    h += `<button class="manual-btn" id="btnManual">✍ 시간 직접 입력${isToday ? ' (버튼을 못 눌렀을 때)' : ''}</button>`;
   }
 
   if (info.recs.length) {
-    h += `<ul class="recs">${info.recs.map(r => `<li><span><b>${r.start} ~ ${r.end || '진행 중'}</b> <small>${esc(r.seg)} · 목표 ${dur(r.plan)}${r.mins !== '' ? ' · 실제 ' + dur(r.mins) : ''}</small></span>
-      <button class="del" data-id="${r.id}">삭제</button></li>`).join('')}</ul>`;
+    h += `<ul class="recs">${info.recs.map(r => sel.editId === r.id ? `<li class="editing"><div class="eform"><h5>기록 수정 · ${esc(r.seg)}</h5>
+        <div class="erow"><label>시작 시각<input type="time" id="eStart" value="${r.start}"></label><label>종료 시각<input type="time" id="eEnd" value="${r.end}"></label></div>
+        <p class="hint">종료 시각을 비우면 '급수 중' 상태로 돌아갑니다.</p>
+        <label style="margin-bottom:10px">목표 시간<select id="ePlan">${planOpts(r.plan)}</select></label>
+        <div class="ebtns"><button id="eCancel">취소</button><button class="save" id="eSave">수정 저장</button></div></div></li>`
+      : `<li><span><b>${r.start} ~ ${r.end || '진행 중'}</b> <small>${esc(r.seg)} · 목표 ${dur(r.plan)}${r.mins !== '' ? ' · 실제 ' + dur(r.mins) : ''}</small>${r.edited ? ` <span class="tag">${esc(r.edited.split(' ')[0])}</span>` : ''}</span>
+      <button class="edit-btn" data-ed="${r.id}">수정</button><button class="del" data-id="${r.id}">삭제</button></li>`).join('')}</ul>`;
   }
   const fi = state.issues.filter(i => i.field === f.name);
   h += `<div class="issue-box" id="issueBox"><h3>⚠ 문제 메모</h3>
@@ -365,6 +397,23 @@ function renderSheet() {
   h += '<button class="close" id="btnClose">닫기</button>';
   $('sheet').innerHTML = h;
 
+  if ($('btnManual')) $('btnManual').onclick = () => { sel.adding = true; sel.editId = null; renderSheet(); setTimeout(() => $('aStart') && $('aStart').focus(), 50); };
+  if ($('aCancel')) $('aCancel').onclick = () => { sel.adding = false; renderSheet(); };
+  if ($('aSave')) $('aSave').onclick = async () => {
+    const start = $('aStart').value, end = $('aEnd').value;
+    if (!start) return toast('시작 시각을 입력해 주세요.');
+    const r = await call({ action: 'add', date: state.date, field: f.name, round: sel.round, seg: $('aSeg') ? $('aSeg').value : '전체', start, end, plan: $('aPlan').value });
+    if (r) { sel.adding = false; renderSheet(); }
+  };
+  $('sheet').querySelectorAll('[data-ed]').forEach(b => b.onclick = () => { sel.editId = b.dataset.ed; sel.adding = false; renderSheet(); });
+  if ($('eCancel')) $('eCancel').onclick = () => { sel.editId = null; renderSheet(); };
+  if ($('eSave')) $('eSave').onclick = async () => {
+    const start = $('eStart').value, end = $('eEnd').value;
+    if (!start) return toast('시작 시각을 입력해 주세요.');
+    const id = sel.editId;
+    const r = await call({ action: 'edit', id, start, end, plan: $('ePlan').value });
+    if (r) { sel.editId = null; renderSheet(); }
+  };
   $('sheet').querySelectorAll('[data-it]').forEach(b => b.onclick = () => { sel.itype = sel.itype === b.dataset.it ? null : b.dataset.it; renderSheet(); });
   $('itext').oninput = e => { sel.itext = e.target.value; $('btnIssue').disabled = !(sel.itype || sel.itext.trim()); };
   $('btnIssue').onclick = async () => {
