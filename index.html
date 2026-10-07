@@ -91,7 +91,11 @@ h4{margin:22px 0 0;font-size:1rem}
 .toast.show{opacity:1}
 .empty{background:var(--card);border:1px dashed var(--line);border-radius:14px;padding:22px;text-align:center;color:var(--sub);line-height:1.6}
 .setup input{width:100%;height:46px;border:1px solid var(--line);border-radius:12px;padding:0 12px;background:transparent;color:var(--ink);font:inherit;margin:8px 0}
-.loading .grid,.loading .sheet{opacity:.6;pointer-events:none}
+.busy .grid,.busy .sheet{pointer-events:none}
+.busybar{position:fixed;left:0;right:0;top:0;z-index:30;display:none;justify-content:center;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 8px;background:var(--brand);color:#fff;font-weight:700;font-size:.95rem}
+.busy .busybar{display:flex}
+.busybar i{width:16px;height:16px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;margin-right:8px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 .rp-quick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .rp-quick button{flex:1;min-width:80px;min-height:44px;border-radius:12px;border:1.5px solid var(--line);background:transparent;font-weight:700}
 .rp-quick button[aria-pressed=true]{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 14%,transparent);color:var(--brand)}
@@ -173,6 +177,7 @@ h4{margin:22px 0 0;font-size:1rem}
 <div class="sheet-bg" id="sheetBg"></div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
 <div class="toast" id="toast" role="status"></div>
+<div class="busybar" id="busybar" role="status"><i></i><span id="busyText">저장 중…</span></div>
 
 <script>
 /* ============ 설정 ============ */
@@ -194,10 +199,14 @@ const alerted = new Set();
 const $ = id => document.getElementById(id);
 
 /* ============ 서버 통신 ============ */
-async function call(params = {}) {
+let busy = false;
+// silent: 1분마다 하는 자동 새로고침 — 화면을 어둡게 하거나 막지 않음
+async function call(params = {}, silent = false) {
   if (!api) { renderSetup(); return null; }
+  if (busy) { if (!silent) toast('앞의 저장이 끝날 때까지 잠시만 기다려 주세요.'); return null; }
+  busy = true;
   const q = new URLSearchParams({ date: $('date').value || '', ...params, t: Date.now() });
-  document.body.classList.add('loading');
+  if (!silent) { $('busyText').textContent = params.action ? '구글시트에 저장 중…' : '불러오는 중…'; document.body.classList.add('busy'); }
   try {
     const res = await fetch(api + '?' + q.toString());
     const data = await res.json();
@@ -208,10 +217,11 @@ async function call(params = {}) {
     render();
     return data;
   } catch (e) {
-    toast('불러오지 못했습니다: ' + e.message);
+    if (!silent) toast((params.action ? '저장하지 못했습니다: ' : '불러오지 못했습니다: ') + e.message + ' (신호를 확인하고 다시 눌러 주세요)');
     return null;
   } finally {
-    document.body.classList.remove('loading');
+    busy = false;
+    document.body.classList.remove('busy');
   }
 }
 
@@ -344,7 +354,7 @@ function render() {
     const f = state.fields.find(x => x.name === b.dataset.f); if (f) openField(f, true);
   });
   // 메모 입력 중에는 화면을 다시 그리지 않음 (쓰던 글자 보호)
-  const typing = (document.activeElement && ['itext','wMat','wQty','wNote'].includes(document.activeElement.id)) || sel.editId || sel.adding;
+  const typing = (document.activeElement && ['itext','wMat','wQty','wNote','wUnit'].includes(document.activeElement.id)) || ['wMat','wQty','wNote','itext'].some(id => $(id) && $(id).value.trim()) || sel.editId || sel.adding;
   if (sel.field && $('sheet').classList.contains('open') && !typing) renderSheet();
 }
 
@@ -778,8 +788,8 @@ $('sheetBg').onclick = closeSheet;
 
 // 남은 시간: 15초마다 화면만 다시 계산 / 서버 기록: 1분마다 새로 불러오기
 setInterval(() => { if (state.date && state.date === state.today && state.records.some(r => !r.end)) render(); }, 15000);
-setInterval(() => { if (state.date && state.date === state.today && document.visibilityState === 'visible') call(); }, 60000);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && state.date === state.today) call(); });
+setInterval(() => { if (state.date && state.date === state.today && document.visibilityState === 'visible') call({}, true); }, 60000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && state.date === state.today) call({}, true); });
 call();
 </script>
 </body>
