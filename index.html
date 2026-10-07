@@ -92,6 +92,32 @@ h4{margin:22px 0 0;font-size:1rem}
 .empty{background:var(--card);border:1px dashed var(--line);border-radius:14px;padding:22px;text-align:center;color:var(--sub);line-height:1.6}
 .setup input{width:100%;height:46px;border:1px solid var(--line);border-radius:12px;padding:0 12px;background:transparent;color:var(--ink);font:inherit;margin:8px 0}
 .loading .grid,.loading .sheet{opacity:.6;pointer-events:none}
+.rp-quick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.rp-quick button{flex:1;min-width:80px;min-height:44px;border-radius:12px;border:1.5px solid var(--line);background:transparent;font-weight:700}
+.rp-quick button[aria-pressed=true]{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 14%,transparent);color:var(--brand)}
+.rp-range{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;margin-bottom:10px}
+.rp-range input{width:100%;min-width:0;height:44px;border:1px solid var(--line);border-radius:10px;padding:0 8px;font:inherit;background:var(--card);color:var(--ink)}
+.rp-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0}
+.rp-kpis div{border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.rp-kpis b{display:block;font-size:1.3rem}
+.rp-kpis small{color:var(--sub);font-weight:600}
+.sheet h4{margin:16px 0 6px}
+.sheet .table-wrap table{min-width:420px}
+.work-box{border-top:2px solid var(--line);margin-top:16px;padding-top:14px}
+.work-box h3{margin:0 0 8px;font-size:1.05rem}
+.wtypes{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.wtypes button{min-height:44px;padding:0 12px;border-radius:999px;border:1.5px solid var(--line);background:transparent;font-weight:700}
+.wtypes button[aria-pressed=true]{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 14%,transparent);color:var(--brand)}
+.wrow{display:grid;grid-template-columns:2fr 1fr 1fr;gap:6px;margin-bottom:8px}
+.work-box input,.work-box select{width:100%;height:46px;border:1px solid var(--line);border-radius:10px;padding:0 10px;font:inherit;background:var(--card);color:var(--ink);min-width:0}
+.big.ok{background:var(--brand)}
+.wbadge{position:absolute;top:10px;right:10px;background:var(--brand);color:#fff;font-size:.78rem;font-weight:800;border-radius:999px;padding:3px 8px}
+.badge+.wbadge{right:58px}
+.works-top{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:14px}
+.works-top h5{margin:0 0 6px;font-size:.98rem;color:var(--brand)}
+.works-top .sum{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.works-top .sum span{background:color-mix(in srgb,var(--brand) 12%,transparent);color:var(--brand);border-radius:999px;padding:4px 10px;font-weight:700;font-size:.88rem}
+.works-top button{display:block;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:transparent;padding:6px 0;font-size:.92rem}
 .manual-btn{width:100%;min-height:46px;border-radius:12px;border:1.5px dashed var(--sub);background:transparent;color:var(--sub);font-weight:700;margin-bottom:10px}
 .eform{width:100%;border:1.5px solid var(--blue);border-radius:14px;padding:12px;margin:6px 0 10px;background:color-mix(in srgb,var(--blue) 6%,transparent)}
 .eform h5{margin:0 0 10px;font-size:.98rem}
@@ -129,6 +155,7 @@ h4{margin:22px 0 0;font-size:1rem}
   <header>
     <h1>🌱 배추밭 물관리</h1>
     <button class="icon-btn" id="btnReload" aria-label="새로고침">⟳</button>
+    <button class="icon-btn" id="btnReport" aria-label="월별·기간별 보고서">📊</button>
     <button class="icon-btn" id="btnSetup" aria-label="연결 설정">⚙</button>
   </header>
 
@@ -156,11 +183,13 @@ const PLAN_OPTIONS = [120, 150, 180]; // 급수시간 선택 버튼(분)
 const COLORS = { none:'var(--red)', run:'var(--blue)', soon:'var(--purple)', over:'var(--magenta)', part:'var(--orange)', one:'var(--yellow)', done:'var(--green)' };
 const LABELS = { none:'미급수', run:'급수 중', soon:'곧 종료', over:'시간 초과', part:'부분 완료', one:'1회 완료', done:'전체 완료' };
 const ISSUE_TYPES = ['스프링클러 막힘', '호스 터짐', '누수', '수압 약함', '기타'];
+const WORK_TYPES = ['비료 살포', '추비', '방제', '제초', '기타'];
+const UNITS = ['포', 'kg', 'L', '개', '말'];
 const SEGS = [ { key:'전체', label:'전체 100%' }, { key:'앞쪽 절반', label:'앞쪽 절반' }, { key:'나머지 절반', label:'나머지 절반' } ];
 
 let api = (()=>{ try{ return localStorage.getItem('waterApi') || DEFAULT_API; }catch(e){ return DEFAULT_API; } })();
-let state = { date:'', today:'', fields:[], records:[], issues:[] };
-let sel = { field:null, round:1, seg:null, plan:null, itype:null, itext:'', editId:null, adding:false };
+let state = { date:'', today:'', fields:[], records:[], issues:[], works:[], materials:[] };
+let sel = { field:null, round:1, seg:null, plan:null, itype:null, itext:'', editId:null, adding:false, wtype:null };
 const alerted = new Set();
 const $ = id => document.getElementById(id);
 
@@ -173,7 +202,7 @@ async function call(params = {}) {
     const res = await fetch(api + '?' + q.toString());
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || '알 수 없는 오류');
-    state = data; state.issues = data.issues || [];
+    state = data; state.issues = data.issues || []; state.works = data.works || []; state.materials = data.materials || [];
     if (!$('date').value) $('date').value = data.date;
     if (data.msg) toast(data.msg);
     render();
@@ -229,6 +258,7 @@ function roundLine(i) {
 }
 
 const openIssues = name => state.issues.filter(i => !i.done && (!name || i.field === name));
+const workLine = w => `${w.work}${w.mat ? ' · ' + w.mat : ''}${w.qty !== '' ? ' ' + w.qty + w.unit : ''}${w.note && !w.note.startsWith('문제메모에서') ? ' · ' + w.note : ''}`;
 const issueLine = i => `${i.date === state.today ? '' : i.date.slice(5).replace('-', '/') + ' '}${i.time} ${i.type}${i.text ? ' · ' + i.text : ''}`;
 
 /* ============ 알림 ============ */
@@ -269,6 +299,13 @@ function render() {
     <div class="ov-bar">${stats.map(s => `<span style="background:${COLORS[s.st]}" title="${esc(s.f.name)}"></span>`).join('')}</div>
     <div class="ov-legend">${Object.keys(LABELS).filter(k => count(k) || ['none','run','done'].includes(k)).map(k => `<span><i class="dot" style="background:${COLORS[k]}"></i>${LABELS[k]} <b>${count(k)}</b></span>`).join('')}</div>
   </section>`;
+  if (state.works.length) {
+    const sum = {};
+    state.works.forEach(w => { if (w.qty !== '' && w.mat) { const k = w.mat + '|' + w.unit; sum[k] = (sum[k] || 0) + w.qty; } });
+    html += `<section class="works-top"><h5>🧺 ${state.date === state.today ? '오늘' : state.date} 작업 ${state.works.length}건</h5>
+      ${Object.keys(sum).length ? `<div class="sum">${Object.entries(sum).map(([k, v]) => `<span>${esc(k.split('|')[0])} 합계 ${v}${esc(k.split('|')[1])}</span>`).join('')}</div>` : ''}
+      ${state.works.map(w => `<button data-wf="${esc(w.field)}"><b>${esc(w.field)}</b> · ${w.time} ${esc(workLine(w))}</button>`).join('')}</section>`;
+  }
   const oi = openIssues();
   if (oi.length) {
     html += `<section class="issues-top"><h5>⚠ 해결 안 된 문제 ${oi.length}건</h5>${oi.map(i => `<button data-f="${esc(i.field)}"><b>${esc(i.field)}</b> · ${esc(issueLine(i))}</button>`).join('')}</section>`;
@@ -286,7 +323,7 @@ function render() {
     } else {
       body = `<div class="st">● ${LABELS[s.st]}</div><div class="rl">${s.infos.map(i => esc(roundLine(i))).join('<br>')}</div>`;
     }
-    html += `<button class="card ${s.live ? 'live' : ''} ${s.st === 'over' ? 'over' : ''}" style="--st:${COLORS[s.st]}" data-i="${idx}">${openIssues(s.f.name).length ? `<span class="badge">⚠ ${openIssues(s.f.name).length}</span>` : ''}<h3>${esc(s.f.name)}</h3>${body}</button>`;
+    html += `<button class="card ${s.live ? 'live' : ''} ${s.st === 'over' ? 'over' : ''}" style="--st:${COLORS[s.st]}" data-i="${idx}">${openIssues(s.f.name).length ? `<span class="badge">⚠ ${openIssues(s.f.name).length}</span>` : ''}${state.works.some(w => w.field === s.f.name) ? `<span class="wbadge">🧺 ${state.works.filter(w => w.field === s.f.name).length}</span>` : ''}<h3>${esc(s.f.name)}</h3>${body}</button>`;
   });
   html += '</div>';
 
@@ -300,11 +337,14 @@ function render() {
   $('content').innerHTML = html;
   document.querySelectorAll('.card').forEach(c => c.onclick = () => openField(stats[+c.dataset.i].f));
   $('btnWord').onclick = downloadWord;
+  document.querySelectorAll('.works-top [data-wf]').forEach(b => b.onclick = () => {
+    const f = state.fields.find(x => x.name === b.dataset.wf); if (f) openField(f);
+  });
   document.querySelectorAll('.issues-top [data-f]').forEach(b => b.onclick = () => {
     const f = state.fields.find(x => x.name === b.dataset.f); if (f) openField(f, true);
   });
   // 메모 입력 중에는 화면을 다시 그리지 않음 (쓰던 글자 보호)
-  const typing = (document.activeElement && document.activeElement.id === 'itext') || sel.editId || sel.adding;
+  const typing = (document.activeElement && ['itext','wMat','wQty','wNote'].includes(document.activeElement.id)) || sel.editId || sel.adding;
   if (sel.field && $('sheet').classList.contains('open') && !typing) renderSheet();
 }
 
@@ -315,7 +355,7 @@ function openField(f, toIssue) {
   sel.round = idx >= 0 ? idx + 1 : 1;
   sel.seg = null;
   sel.plan = f.planMin;
-  sel.itype = null; sel.itext = ''; sel.editId = null; sel.adding = false;
+  sel.itype = null; sel.itext = ''; sel.editId = null; sel.adding = false; sel.wtype = null;
   $('sheet').classList.add('open');
   $('sheetBg').style.display = 'block';
   renderSheet();
@@ -386,6 +426,19 @@ function renderSheet() {
       : `<li><span><b>${r.start} ~ ${r.end || '진행 중'}</b> <small>${esc(r.seg)} · 목표 ${dur(r.plan)}${r.mins !== '' ? ' · 실제 ' + dur(r.mins) : ''}</small>${r.edited ? ` <span class="tag">${esc(r.edited.split(' ')[0])}</span>` : ''}</span>
       <button class="edit-btn" data-ed="${r.id}">수정</button><button class="del" data-id="${r.id}">삭제</button></li>`).join('')}</ul>`;
   }
+  const fw = state.works.filter(w => w.field === f.name);
+  h += `<div class="work-box"><h3>🧺 작업 기록 <small style="color:var(--sub);font-weight:600">(비료·방제 등 한 일)</small></h3>
+    <div class="wtypes">${WORK_TYPES.map(t => `<button data-wt="${t}" aria-pressed="${sel.wtype === t}">${t}</button>`).join('')}</div>
+    <div class="wrow">
+      <input id="wMat" list="matList" placeholder="자재 (예: 스피드 NK)" autocomplete="off">
+      <input id="wQty" type="number" inputmode="decimal" min="0" step="any" placeholder="수량">
+      <select id="wUnit">${UNITS.map(u => `<option>${u}</option>`).join('')}</select>
+    </div>
+    <datalist id="matList">${state.materials.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
+    <input id="wNote" placeholder="메모 (선택)" style="margin-bottom:8px">
+    <button class="big ok" id="btnWork" ${sel.wtype ? '' : 'disabled'}>작업 기록 저장</button>
+    ${fw.length ? `<ul class="ilist">${fw.map(w => `<li><span>${w.time} ${esc(workLine(w))}</span><button class="del" data-dw="${w.id}">삭제</button></li>`).join('')}</ul>` : ''}
+  </div>`;
   const fi = state.issues.filter(i => i.field === f.name);
   h += `<div class="issue-box" id="issueBox"><h3>⚠ 문제 메모</h3>
     <div class="itypes">${ISSUE_TYPES.map(t => `<button data-it="${t}" aria-pressed="${sel.itype === t}">${t}</button>`).join('')}</div>
@@ -414,6 +467,17 @@ function renderSheet() {
     const r = await call({ action: 'edit', id, start, end, plan: $('ePlan').value });
     if (r) { sel.editId = null; renderSheet(); }
   };
+  $('sheet').querySelectorAll('[data-wt]').forEach(b => b.onclick = () => {
+    const keep = { m: $('wMat').value, q: $('wQty').value, u: $('wUnit').value, n: $('wNote').value };
+    sel.wtype = sel.wtype === b.dataset.wt ? null : b.dataset.wt; renderSheet();
+    $('wMat').value = keep.m; $('wQty').value = keep.q; $('wUnit').value = keep.u; $('wNote').value = keep.n;
+  });
+  $('btnWork').onclick = async () => {
+    const r = await call({ action: 'work', date: state.date, time: state.date === state.today ? '' : '12:00', field: f.name, work: sel.wtype,
+      mat: $('wMat').value.trim(), qty: $('wQty').value, unit: $('wUnit').value, note: $('wNote').value.trim() });
+    if (r) { sel.wtype = null; renderSheet(); }
+  };
+  $('sheet').querySelectorAll('[data-dw]').forEach(b => b.onclick = () => { if (confirm('이 작업 기록을 삭제할까요?')) call({ action: 'delWork', id: b.dataset.dw }); });
   $('sheet').querySelectorAll('[data-it]').forEach(b => b.onclick = () => { sel.itype = sel.itype === b.dataset.it ? null : b.dataset.it; renderSheet(); });
   $('itext').oninput = e => { sel.itext = e.target.value; $('btnIssue').disabled = !(sel.itype || sel.itext.trim()); };
   $('btnIssue').onclick = async () => {
@@ -534,7 +598,10 @@ async function downloadWord() {
     recs.length ? table(dw, ['밭', '회차', '구역', '시작', '종료', '실제', '목표', '차이'], detRows) : para('이 날짜에는 급수 기록이 없습니다.', { color: '666666' }),
     heading('3. 문제 메모 (스프링클러·호스 등)'),
     iss.length ? table(iw, ['일시', '밭', '유형', '내용', '처리'], issRows) : para('기록된 문제가 없습니다.', { color: '666666' }),
-    heading('4. 특이사항'),
+    heading('4. 작업 기록 (비료·방제 등)'),
+    state.works.length ? table([1100, 1700, 1500, 2600, 1300, W - 8200], ['시각', '밭', '작업', '자재', '수량', '메모'],
+      state.works.map(w => [w.time, w.field, w.work, w.mat || '-', w.qty === '' ? '-' : w.qty + w.unit, w.note.startsWith('문제메모에서') ? '' : (w.note || '')])) : para('기록된 작업이 없습니다.', { color: '666666' }),
+    heading('5. 특이사항'),
     para('________________________________________________________________________________________', { color: '999999' }, { spacing: { after: 120 } }),
     para('________________________________________________________________________________________', { color: '999999' }, { spacing: { after: 240 } }),
     new Paragraph({ alignment: AlignmentType.RIGHT, children: [run('작성자: ______________ (서명)        확인: ______________ (서명)', { size: 20 })] })
@@ -553,6 +620,144 @@ async function downloadWord() {
   toast('워드 일지를 저장했습니다.');
 }
 
+/* ============ 월별·기간별 보고서 ============ */
+let rp = { from: '', to: '', quick: 'month', data: null };
+const ymdStr = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function quickRange(k) {
+  const t = new Date((state.today || ymdStr(new Date())) + 'T00:00:00');
+  if (k === 'month') return [ymdStr(new Date(t.getFullYear(), t.getMonth(), 1)), ymdStr(t)];
+  if (k === 'prev') return [ymdStr(new Date(t.getFullYear(), t.getMonth() - 1, 1)), ymdStr(new Date(t.getFullYear(), t.getMonth(), 0))];
+  if (k === 'week') { const a = new Date(t); a.setDate(a.getDate() - 6); return [ymdStr(a), ymdStr(t)]; }
+  if (k === 'day') { const d = $('date').value || state.today; return [d, d]; }
+}
+function openReport() {
+  sel.field = null;
+  if (!rp.from) [rp.from, rp.to] = quickRange('month');
+  $('sheet').classList.add('open'); $('sheetBg').style.display = 'block';
+  renderReport(); loadReport();
+}
+async function loadReport() {
+  rp.data = null; renderReport();
+  try {
+    const res = await fetch(api + '?' + new URLSearchParams({ action: 'range', from: rp.from, to: rp.to, t: Date.now() }));
+    const d = await res.json();
+    if (!d.ok) throw new Error(d.error || '오류');
+    rp.data = d;
+  } catch (e) { rp.data = { error: '불러오지 못했습니다: ' + e.message + ' (Apps Script를 새 버전으로 배포했는지 확인해 주세요)' }; }
+  renderReport();
+}
+
+function summarize(d) {
+  const recs = d.records, works = d.works;
+  const doneRecs = recs.filter(r => r.mins !== '');
+  const totalMin = doneRecs.reduce((a, r) => a + r.mins, 0);
+  const matSum = {};
+  works.forEach(w => { if (w.mat && w.qty !== '') { const k = w.mat + '|' + w.unit; matSum[k] = (matSum[k] || 0) + w.qty; } });
+  const names = [...new Set([...d.fields.map(f => f.name), ...recs.map(r => r.field), ...works.map(w => w.field)])];
+  const byField = names.map(n => {
+    const fr = recs.filter(r => r.field === n), fw = works.filter(w => w.field === n);
+    const rounds = new Set(fr.map(r => r.date + '#' + r.round)).size;
+    const mins = fr.reduce((a, r) => a + (r.mins === '' ? 0 : r.mins), 0);
+    const ms = {}; fw.forEach(w => { if (w.mat && w.qty !== '') { const k = w.mat + '|' + w.unit; ms[k] = (ms[k] || 0) + w.qty; } });
+    const mat = Object.entries(ms).map(([k, v]) => k.split('|')[0] + ' ' + v + k.split('|')[1]).join(', ')
+      || (fw.length ? fw.map(w => w.work).join(', ') : '');
+    return { name: n, rounds, mins, mat, works: fw.length, issues: d.issues.filter(i => i.field === n).length };
+  }).filter(x => x.rounds || x.works || x.issues);
+  const dates = [...new Set([...recs.map(r => r.date), ...works.map(w => w.date), ...d.issues.map(i => i.date)])].sort();
+  const byDate = dates.map(dt => {
+    const dr = recs.filter(r => r.date === dt), dw = works.filter(w => w.date === dt);
+    const ms = {}; dw.forEach(w => { if (w.mat && w.qty !== '') { const k = w.mat + '|' + w.unit; ms[k] = (ms[k] || 0) + w.qty; } });
+    return { date: dt, n: dr.length, fields: new Set(dr.map(r => r.field)).size, mins: dr.reduce((a, r) => a + (r.mins === '' ? 0 : r.mins), 0),
+      work: Object.entries(ms).map(([k, v]) => k.split('|')[0] + ' ' + v + k.split('|')[1]).join(', ') || (dw.length ? dw.length + '건' : '-'),
+      issues: d.issues.filter(i => i.date === dt).length };
+  });
+  return { totalMin, matSum, byField, byDate, nRec: recs.length };
+}
+const md = d => d.slice(5).replace('-', '/');
+
+function renderReport() {
+  let h = `<h2>📊 월별·기간별 보고서</h2>
+    <div class="rp-quick">${[['month', '이번 달'], ['prev', '지난 달'], ['week', '최근 7일'], ['day', '선택한 날']].map(([k, l]) => `<button data-q="${k}" aria-pressed="${rp.quick === k}">${l}</button>`).join('')}</div>
+    <div class="rp-range"><input type="date" id="rpFrom" value="${rp.from}" aria-label="시작일"><span>~</span><input type="date" id="rpTo" value="${rp.to}" aria-label="종료일"></div>`;
+  const d = rp.data;
+  if (!d) h += '<div class="empty">불러오는 중…</div>';
+  else if (d.error) h += `<div class="empty">${esc(d.error)}</div>`;
+  else {
+    const S = summarize(d);
+    h += `<div class="rp-kpis">
+        <div><small>급수 기록</small><b>${S.nRec}건</b></div>
+        <div><small>총 급수시간</small><b>${dur(S.totalMin)}</b></div>
+        <div><small>작업 기록</small><b>${d.works.length}건</b></div>
+        <div><small>문제 메모</small><b>${d.issues.length}건</b></div></div>
+      <button class="big ok" id="rpWord">📄 이 기간 보고서 워드로 저장</button>`;
+    if (Object.keys(S.matSum).length) h += `<h4>자재 사용 합계</h4><div class="works-top" style="margin:0"><div class="sum" style="margin:0">${Object.entries(S.matSum).map(([k, v]) => `<span>${esc(k.split('|')[0])} ${v}${esc(k.split('|')[1])}</span>`).join('')}</div></div>`;
+    h += `<h4>밭별 정리</h4>` + (S.byField.length ? `<div class="table-wrap"><table><thead><tr><th>밭</th><th>급수</th><th>급수시간</th><th>자재·작업</th><th>문제</th></tr></thead>
+      <tbody>${S.byField.map(x => `<tr><td>${esc(x.name)}</td><td>${x.rounds ? x.rounds + '회' : '-'}</td><td>${x.mins ? dur(x.mins) : '-'}</td><td>${esc(x.mat) || '-'}</td><td>${x.issues || '-'}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">이 기간에는 기록이 없습니다.</div>');
+    if (S.byDate.length) h += `<h4>날짜별 정리</h4><div class="table-wrap"><table><thead><tr><th>날짜</th><th>급수</th><th>급수시간</th><th>자재·작업</th><th>문제</th></tr></thead>
+      <tbody>${S.byDate.map(x => `<tr><td>${md(x.date)}</td><td>${x.n ? x.fields + '개 밭 ' + x.n + '건' : '-'}</td><td>${x.mins ? dur(x.mins) : '-'}</td><td>${esc(x.work)}</td><td>${x.issues || '-'}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  h += '<button class="close" id="btnClose">닫기</button>';
+  $('sheet').innerHTML = h;
+  $('btnClose').onclick = closeSheet;
+  $('sheet').querySelectorAll('[data-q]').forEach(b => b.onclick = () => { rp.quick = b.dataset.q; [rp.from, rp.to] = quickRange(rp.quick); loadReport(); });
+  const onRange = () => { if ($('rpFrom').value && $('rpTo').value) { rp.from = $('rpFrom').value; rp.to = $('rpTo').value; rp.quick = ''; loadReport(); } };
+  $('rpFrom').onchange = onRange; $('rpTo').onchange = onRange;
+  if ($('rpWord')) $('rpWord').onclick = downloadRangeWord;
+}
+
+async function downloadRangeWord() {
+  let D;
+  try { toast('보고서를 만드는 중…'); D = await loadDocx(); } catch (e) { return toast(e.message); }
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, ShadingType, VerticalAlign } = D;
+  const d = rp.data, S = summarize(d);
+  const FONT = '맑은 고딕', SZ = 18, W = 10206;
+  const bd = { style: BorderStyle.SINGLE, size: 4, color: '8A8A8A' }, borders = { top: bd, bottom: bd, left: bd, right: bd };
+  const run = (t, o = {}) => new TextRun({ text: String(t), font: FONT, size: SZ, ...o });
+  const para = (t, o = {}, po = {}) => new Paragraph({ children: [run(t, o)], ...po });
+  const cell = (t, w, head) => new TableCell({ width: { size: w, type: WidthType.DXA }, borders, verticalAlign: VerticalAlign.CENTER,
+    shading: head ? { fill: 'E4EBE2', type: ShadingType.CLEAR, color: 'auto' } : undefined, margins: { top: 40, bottom: 40, left: 80, right: 80 },
+    children: [para(t, { bold: !!head }, { alignment: head ? AlignmentType.CENTER : AlignmentType.LEFT, spacing: { before: 0, after: 0 } })] });
+  const table = (ws, head, rows) => { ws = [...ws, W - ws.reduce((a, b) => a + b, 0)];
+    return new Table({ width: { size: W, type: WidthType.DXA }, columnWidths: ws,
+      rows: [new TableRow({ tableHeader: true, children: head.map((x, i) => cell(x, ws[i], true)) }), ...rows.map(r => new TableRow({ children: r.map((c, i) => cell(c, ws[i])) }))] }); };
+  const heading = t => para(t, { bold: true, size: 22 }, { spacing: { before: 200, after: 80 } });
+  const none = t => para(t, { color: '666666' });
+  const title = rp.quick === 'month' || rp.quick === 'prev' ? `${rp.from.slice(0, 4)}년 ${+rp.from.slice(5, 7)}월` : `${md(rp.from)} ~ ${md(rp.to)}`;
+  const matLine = Object.entries(S.matSum).map(([k, v]) => k.split('|')[0] + ' ' + v + k.split('|')[1]).join(', ');
+
+  const children = [
+    para(`배추밭 관리 보고서 (${title})`, { bold: true, size: 30 }, { alignment: AlignmentType.CENTER, spacing: { after: 60 } }),
+    para(`기간: ${rp.from} ~ ${rp.to}`, { color: '555555' }, { alignment: AlignmentType.CENTER, spacing: { after: 160 } }),
+    para(`급수 ${S.nRec}건 · 총 급수시간 ${dur(S.totalMin)} · 작업 ${d.works.length}건 · 문제 메모 ${d.issues.length}건`),
+    para(`자재 사용 합계: ${matLine || '없음'}`, { bold: true }, { spacing: { after: 60 } }),
+    heading('1. 밭별 정리'),
+    S.byField.length ? table([2000, 1000, 1500, 4000], ['밭', '급수 횟수', '급수시간', '자재·작업', '문제'],
+      S.byField.map(x => [x.name, x.rounds ? x.rounds + '회' : '-', x.mins ? dur(x.mins) : '-', x.mat || '-', String(x.issues || '-')])) : none('기록이 없습니다.'),
+    heading('2. 날짜별 정리'),
+    S.byDate.length ? table([1100, 1900, 1500, 4300], ['날짜', '급수', '급수시간', '자재·작업', '문제'],
+      S.byDate.map(x => [md(x.date), x.n ? `${x.fields}개 밭 ${x.n}건` : '-', x.mins ? dur(x.mins) : '-', x.work, String(x.issues || '-')])) : none('기록이 없습니다.'),
+    heading('3. 작업 기록 상세'),
+    d.works.length ? table([1500, 2000, 1400, 2300, 1100], ['일시', '밭', '작업', '자재', '수량', '메모'],
+      [...d.works].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+        .map(w => [md(w.date) + ' ' + w.time, w.field, w.work, w.mat || '-', w.qty === '' ? '-' : w.qty + w.unit, w.note.startsWith('문제메모에서') ? '' : w.note])) : none('작업 기록이 없습니다.'),
+    heading('4. 문제 메모'),
+    d.issues.length ? table([1500, 2000, 1700, 3400], ['일시', '밭', '유형', '내용', '처리'],
+      [...d.issues].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+        .map(i => [md(i.date) + ' ' + i.time, i.field, i.type, i.text || '-', i.done ? '해결' : '미해결'])) : none('문제 메모가 없습니다.'),
+    para('', {}, { spacing: { after: 200 } }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, children: [run('작성자: ______________ (서명)        확인: ______________ (서명)', { size: 20 })] })
+  ];
+  const doc = new Document({ styles: { default: { document: { run: { font: FONT, size: SZ } } } },
+    sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 850, bottom: 850, left: 850, right: 850 } } }, children }] });
+  const blob = await Packer.toBlob(doc);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `배추밭_보고서_${rp.from}_${rp.to}.docx`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast('보고서를 저장했습니다.');
+}
+
 /* ============ 도우미 ============ */
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 let tt; function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => el.classList.remove('show'), 3500); }
@@ -568,6 +773,7 @@ $('next').onclick = () => shiftDate(1);
 $('goToday').onclick = () => { $('date').value = ''; call(); };
 $('btnReload').onclick = () => call();
 $('btnSetup').onclick = renderSetup;
+$('btnReport').onclick = openReport;
 $('sheetBg').onclick = closeSheet;
 
 // 남은 시간: 15초마다 화면만 다시 계산 / 서버 기록: 1분마다 새로 불러오기
